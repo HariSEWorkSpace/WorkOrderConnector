@@ -279,6 +279,17 @@ global class WS_Work_Order{
 			public id ContactId;
 			public id Fsrid;
 			public id ipid;
+			public String SESAID;
+			public String FirstName;
+			public String LastName;
+			public String Email;
+			public String RoleName;
+			public String GoldenID;
+			public String IPName;
+			public String InstalledAtGoldenID;
+			public String IPSerialNumber;
+			public String IPSECommercialRef;
+			public String IpinstalledAtCountryCode;   
 		
 	 
 	 }
