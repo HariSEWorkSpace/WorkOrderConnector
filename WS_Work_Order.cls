@@ -9,7 +9,7 @@ global class WS_Work_Order{
             webservice String     workOrderNumber; 
             webservice ID      installedAtAccountbFOID ;
             webservice Contact    contact;
-            webservice Date    customerRequestedDate ; // need to confirm datatype           
+            webservice Date    customerRequestedDate ; 
             webservice String customerRequestedTime;
             webservice String serviceBusinessUnit;
             webservice String priority;
@@ -54,6 +54,7 @@ global class WS_Work_Order{
             webservice String   WOcurrencyIsCode;
             webservice String billToAccountbFOID;
             webservice String slaTermsName;
+			webservice Account installedAtAccount;
         
      
      }
@@ -68,6 +69,7 @@ global class WS_Work_Order{
      }
      
      global class Account{
+		webservice    ID 	  bFOID;
         webservice    String   GoldenID;
         webservice    String   Name;
         webservice    String   NameLocal;
@@ -95,6 +97,8 @@ global class WS_Work_Order{
         webservice String emailAddress;
         webservice String mobilePhone;
         webservice String workPhone;
+	  
+	  
         
      }
      global class Technician{
@@ -581,10 +585,18 @@ global class WS_Work_Order{
                                 
                                 ServicedProductsWDResult result = new ServicedProductsWDResult();
                                 result.type ='CREATE';
-                                result.installedProductbFOID = solines[k].SVMXC__Serial_Number__c;
+                                if(solines[k].SVMXC__Serial_Number__c != null ){
+                                    result.installedProductbFOID = solines[k].SVMXC__Serial_Number__c;
+                                    if(IPMap.containskey(solines[k].SVMXC__Serial_Number__c))
+                                    {
+                                        result.installedProductGoldenID = IPMap.get(solines[k].SVMXC__Serial_Number__c).GoldenAssetId__c;
+                                        result.SerialNumber = IPMap.get(solines[k].SVMXC__Serial_Number__c).CustomerSerialNumber__c;
+                                    }
+                                    
+                                }
+                                
                                 result.workOrderbFOID = wor.workOrderbFOID ;
-                                //result.installedProductGoldenID
-                                //result.SerialNumber
+                                
                                 Database.SaveResult sr =slresult[k];
                                 if(!sr.isSuccess())
                                 {
@@ -617,10 +629,11 @@ global class WS_Work_Order{
             return worList;
     
     }
-    
+    public static Map<id,SVMXC__Installed_Product__c> IPMap = new Map<id,SVMXC__Installed_Product__c>();
     public static List<SVMXC__Service_Order_Line__c> prepareServiceProducts(List<ServiceProductsWD> spwd){
         List<SVMXC__Service_Order_Line__c> ServiceProductsList = new  List<SVMXC__Service_Order_Line__c>();
         List<ServiceProducts>  spList = new List<ServiceProducts>();
+        
         
         for(ServiceProductsWD spu: spwd){
                 
@@ -634,6 +647,9 @@ global class WS_Work_Order{
             
         }
         List<SVMXC__Installed_Product__c> iplist = Database.query(getIPQuery());
+        for(SVMXC__Installed_Product__c ipobj: iplist)
+        IPMap.put(ipobj.id,ipobj);
+        
         String Query='';        
         String QueryString ='';
         String WhereClause ='';
@@ -698,6 +714,7 @@ global class WS_Work_Order{
         List<User> userlist = new List<User>();
         if(UWhereClause.length()>0){
             UQuery =  UQueryString +' where '+UWhereClause;  
+            System.debug('\n WOWS Log : user query '+UQuery);
             userlist =Database.query(UQuery);
         }
          
@@ -706,7 +723,7 @@ global class WS_Work_Order{
         Set<id> useridset = new Set<id>();
         
         for(ServiceProducts spu: spList){
-            
+            System.debug('\n WOWS Log ServiceProducts '+spu);
             string key ='';
             if(spu.FirstName != null && spu.FirstName !='')
                     key +=spu.FirstName;
@@ -745,9 +762,10 @@ global class WS_Work_Order{
                             st +=uobj.Email;
                     }
                     if(key == st){
-                        
+                    
                         spu.UserId = uobj.id;
-                        
+                        useridset.add(uobj.id);
+                     System.debug('\n WOWS Log userId '+spu.UserId);       
                         break;
                     }
                                     
@@ -778,6 +796,7 @@ global class WS_Work_Order{
                     if(key == st){
                         
                         spu.ContactId = (Id)sobj.get('Id');
+                        System.debug('\n WOWS Log contactid '+spu.ContactId);
                         conidset.add(spu.ContactId);
                         break;
                     }
@@ -836,21 +855,22 @@ global class WS_Work_Order{
                 }
                 
                 if(ikey == st)
-                {
-                    
+                {                    
                     spu.ipid = ipobj.id;
                     break;
                 }
         
             }
-            
+             System.debug('\n WOWS Log ServiceProducts '+spu);
             
         }       
         
         List<SVMXC__Service_Group_Members__c> sgmlist = [select id, SVMXC__Salesforce_User__c , ThirdPartyContact__c,SVMXC__Role__c  from SVMXC__Service_Group_Members__c where SVMXC__Salesforce_User__c in : useridset or ThirdPartyContact__c in : conidset ];
         for(ServiceProducts spu: spList){       
-            
+            System.debug('\n WOWS Log sp '+spu);
             for(SVMXC__Service_Group_Members__c sg:sgmlist){
+                 
+                
                 if(spu.RoleName == 'Schneider Employee')
                 {                       
                     if(spu.UserId == sg.SVMXC__Salesforce_User__c){
@@ -863,6 +883,7 @@ global class WS_Work_Order{
                     }
                 
                 }
+                System.debug('\n WOWS Log sp '+spu);
             
             }
         
@@ -985,7 +1006,7 @@ global class WS_Work_Order{
     public Static SVMXC__Service_Order__c getWorkOrderObject( Id woid){
     
         SVMXC__Service_Order__c  wo = new SVMXC__Service_Order__c();
-        wo = [select ID,Name,SVMXC__Company__c,SVMXC__Contact__c,CustomerRequestedDate__c,CustomerRequestedTime__c,BusinessUnit__c,SVMXC__Priority__c,SVMXC__Scheduled_Date_Time__c,WorkOrderGroup__c,WorkOrderGroup__r.BackOfficeReference__c,WorkOrderName__c,Comments_to_Planner__c,CountryOfBackOffice__c,BackOfficeSystem__c,SVMXC__Order_Status__c,SubStatus__c,Work_Order_Category__c,SVMXC__Order_Type__c,WorkOrderSubType__c,IsBillable__c,SVMXC__Billing_Type__c,SVMXC__Group_Member__c,OwnerID,Parent_Work_Order__c,SoldToAccount__c,SVMXC__Component__c,SVMXC__Product__c,Project__c,SVMXC__Service_Contract__c,ServiceLine__c,BackOfficeReference__c from SVMXC__Service_Order__c where id =:woid];
+        wo = [select ID,Name,SVMXC__Company__c,SVMXC__Contact__c,CustomerRequestedDate__c,CustomerRequestedTime__c,BusinessUnit__c,SVMXC__Priority__c,SVMXC__Scheduled_Date_Time__c,WorkOrderGroup__c,WorkOrderGroup__r.BackOfficeReference__c,WorkOrderName__c,Comments_to_Planner__c,CountryOfBackOffice__c,BackOfficeSystem__c,SVMXC__Order_Status__c,SubStatus__c,Work_Order_Category__c,SVMXC__Order_Type__c,WorkOrderSubType__c,IsBillable__c,SVMXC__Billing_Type__c,SVMXC__Group_Member__c,OwnerID,Parent_Work_Order__c,SoldToAccount__c,SVMXC__Component__c,SVMXC__Product__c,Project__c,SVMXC__Service_Contract__c,ServiceLine__c,BackOfficeReference__c,SVMXC__Company__r.SEAccountID__c,SVMXC__Company__r.Name,SVMXC__Company__r.AccountLocalName__c,SVMXC__Company__r.Street__c,SVMXC__Company__r.StreetLocalLang__c,SVMXC__Company__r.AdditionalAddress__c,SVMXC__Company__r.LocalAdditionalAddress__c,SVMXC__Company__r.ZipCode__c,SVMXC__Company__r.City__c,SVMXC__Company__r.LocalCity__c,SVMXC__Company__r.Country__r.CountryCode__c,SVMXC__Company__r.StateProvince__r.Name,SVMXC__Contact__r.SEContactID__c,SVMXC__Contact__r.FirstName,SVMXC__Contact__r.LocalFirstName__c,SVMXC__Contact__r.MidInit__c,SVMXC__Contact__r.LocalMidInit__c,SVMXC__Contact__r.LastName,SVMXC__Contact__r.LocalLastName__c,SVMXC__Contact__r.Email,SVMXC__Contact__r.MobilePhone,SVMXC__Contact__r.WorkPhone__c,SVMXC__SLA_Terms__c,SVMXC__Group_Member__r.SVMXC__Role__c,SVMXC__Group_Member__r.SVMXC__Salesforce_User__r.FirstName,SVMXC__Preferred_Technician__c,SVMXC__Group_Member__r.SVMXC__Salesforce_User__r.LastName,SVMXC__Group_Member__r.SVMXC__Salesforce_User__r.Email,SVMXC__Group_Member__r.SESAID__c,SVMXC__Group_Member__r.ThirdPartyContact__r.FirstName,SVMXC__Group_Member__r.ThirdPartyContact__r.LastName,SVMXC__Group_Member__r.ThirdPartyContact__r.Email,SVMXC__Component__r.GoldenAssetId__c,SVMXC__Component__r.Name,SVMXC__Component__r.SVMXC__Company__r.SEAccountID__c,SVMXC__Component__r.SVMXC__Serial_Lot_Number__c,SVMXC__Component__r.SchneiderCommercialReference__c,SVMXC__Component__r.SVMXC__Company__r.Country__r.CountryCode__c,SVMXC__Service_Contract__r.BackOfficeReference__c,ServiceLine__r.BackOfficeReference__c,Sales_Order_Number__c,salesOrderLineNumber__c,Customer_Reference_Number__c,SVMXC__Primary_Territory__r.Name,CustomerReferenceNumber__c from SVMXC__Service_Order__c where id =:woid];
         return wo;
     }
     public Static List<ServiceProductsWD>  getServiceProducts( Id woid ,Id rtid){
@@ -1161,12 +1182,23 @@ global class WS_Work_Order{
     public static Map<Id,Technician> TechnicianMap = new Map<Id,Technician>();
     public Static void  prepareTechnicians(Set<id> idset){
             
-            for(SVMXC__Service_Group_Members__c gm:[select id, SESAID__c,SVMXC__Salesforce_User__c,SVMXC__Salesforce_User__r.FirstName,SVMXC__Salesforce_User__r.LastName,SVMXC__Salesforce_User__r.email,ThirdPartyContact__c,ThirdPartyContact__r.FirstName,ThirdPartyContact__r.LastName,SVMXC__Email__c,SVMXC__Role__c  from SVMXC__Service_Group_Members__c]){         
+            for(SVMXC__Service_Group_Members__c gm:[select id, SESAID__c,SVMXC__Salesforce_User__c,SVMXC__Salesforce_User__r.FirstName,SVMXC__Salesforce_User__r.LastName,SVMXC__Salesforce_User__r.email,ThirdPartyContact__c,ThirdPartyContact__r.FirstName,ThirdPartyContact__r.LastName,ThirdPartyContact__r.email,SVMXC__Email__c,SVMXC__Role__c  from SVMXC__Service_Group_Members__c]){         
                 Technician t = new Technician();
-                t.SESAID  = gm.SESAID__c;
-                t.FirstName = gm.SVMXC__Salesforce_User__r.FirstName;
-                t.LastName = gm.SVMXC__Salesforce_User__r.LastName;
-                t.Email = gm.SVMXC__Salesforce_User__r.email;
+				if(gm.SVMXC__Role__c == 'Schneider Employee'){
+					t.SESAID  = gm.SESAID__c;
+					t.FirstName = gm.SVMXC__Salesforce_User__r.FirstName;
+					t.LastName = gm.SVMXC__Salesforce_User__r.LastName;
+					t.Email = gm.SVMXC__Salesforce_User__r.email;
+					t.RoleName = gm.SVMXC__Role__c;
+				}
+				else{
+					
+					t.FirstName = gm.ThirdPartyContact__r.FirstName;
+					t.LastName = gm.ThirdPartyContact__r.LastName;
+					t.Email = gm.ThirdPartyContact__r.email;
+					t.RoleName = gm.SVMXC__Role__c;
+				
+				}
                 TechnicianMap.put(gm.id,t);
             }
                 
@@ -1177,8 +1209,36 @@ global class WS_Work_Order{
     
             woresult.workOrderbFOID = wo.id;
             woresult.workOrderNumber = wo.Name;
-            //woresult.installedAtAccount = 
-            //woresult.contact
+		
+			Account ipAtAcc = new Account();
+			ipAtAcc.name  = wo.SVMXC__Company__r.Name;
+			ipAtAcc.bFOID = wo.SVMXC__Company__c;
+			ipAtAcc.GoldenID = wo.SVMXC__Company__r.SEAccountID__c;
+			ipAtAcc.NameLocal = wo.SVMXC__Company__r.AccountLocalName__c;
+			ipAtAcc.Street = wo.SVMXC__Company__r.Street__c;
+			ipAtAcc.StreetLocal =  wo.SVMXC__Company__r.StreetLocalLang__c;
+			ipAtAcc.AddAddressInfo = wo.SVMXC__Company__r.AdditionalAddress__c;
+			ipAtAcc.AddAddressInfoLocal =  wo.SVMXC__Company__r.LocalAdditionalAddress__c;
+			ipAtAcc.ZipCode =  wo.SVMXC__Company__r.ZipCode__c;
+			ipAtAcc.City =  wo.SVMXC__Company__r.City__c;
+			ipAtAcc.LocalCity = wo.SVMXC__Company__r.LocalCity__c;
+			ipAtAcc.CountryCode = wo.SVMXC__Company__r.Country__r.CountryCode__c;
+			ipAtAcc.StateProvinceCode = wo.SVMXC__Company__r.StateProvince__r.Name;
+			
+			  Contact contact  = new Contact();
+			  contact.GoldenID = wo.SVMXC__Contact__r.SEContactID__c;
+			  contact.firstName = wo.SVMXC__Contact__r.FirstName;
+			  contact.localFirstName = wo.SVMXC__Contact__r.LocalFirstName__c;
+			  contact.middleInitial = wo.SVMXC__Contact__r.MidInit__c;
+			  contact.localMiddleInitial = wo.SVMXC__Contact__r.LocalMidInit__c;
+			  contact.lastName = wo.SVMXC__Contact__r.LastName;
+			  contact.localLastName = wo.SVMXC__Contact__r.LocalLastName__c;
+			  contact.emailAddress = wo.SVMXC__Contact__r.Email;
+			  contact.mobilePhone = wo.SVMXC__Contact__r.MobilePhone;
+			  contact.workPhone = wo.SVMXC__Contact__r.WorkPhone__c;
+			
+            woresult.installedAtAccount = ipAtAcc;
+            woresult.contact = contact;
             woresult.customerRequestedDate = wo.CustomerRequestedDate__c;
             woresult.customerRequestedTime = wo.CustomerRequestedTime__c;           
             woresult.serviceBusinessUnit = wo.BusinessUnit__c;
@@ -1197,24 +1257,53 @@ global class WS_Work_Order{
             woresult.workOrderSubType = wo.WorkOrderSubType__c;         
             woresult.isBillable = wo.IsBillable__c ;
             woresult.billingType = wo.SVMXC__Billing_Type__c;
-            //woresult.primaryFSR = wo.
+			woresult.slaTermsName = wo.SVMXC__SLA_Terms__c;
+			Technician primaryFSR =new  Technician();
+			System.debug('\n Log : WOWS tech aaa '+wo.SVMXC__Group_Member__c);
+			if(wo.SVMXC__Group_Member__r.SVMXC__Role__c == 'Schneider Employee')
+			{
+				primaryFSR.SESAID = wo.SVMXC__Group_Member__r.SESAID__c;
+				primaryFSR.FirstName = wo.SVMXC__Group_Member__r.SVMXC__Salesforce_User__r.FirstName;
+				primaryFSR.LastName = wo.SVMXC__Group_Member__r.SVMXC__Salesforce_User__r.LastName;
+				primaryFSR.Email = wo.SVMXC__Group_Member__r.SVMXC__Salesforce_User__r.Email;
+				primaryFSR.RoleName = wo.SVMXC__Group_Member__r.SVMXC__Role__c;
+			}
+			else{
+				primaryFSR.FirstName = wo.SVMXC__Group_Member__r.ThirdPartyContact__r.FirstName;
+				primaryFSR.LastName = wo.SVMXC__Group_Member__r.ThirdPartyContact__r.LastName;
+				primaryFSR.Email = wo.SVMXC__Group_Member__r.ThirdPartyContact__r.Email;
+				primaryFSR.RoleName = wo.SVMXC__Group_Member__r.SVMXC__Role__c;
+			
+			}
+			 woresult.primaryFSR = primaryFSR;
+			 
+			 InstalledProduct mip = new InstalledProduct();
+			 mip.GoldenID =  wo.SVMXC__Component__r.GoldenAssetId__c;
+			 mip.Name = wo.SVMXC__Component__r.Name;
+			 mip.InstalledAtGoldenID = wo.SVMXC__Component__r.SVMXC__Company__r.SEAccountID__c;
+			 mip.SerialNumber = wo.SVMXC__Component__r.SVMXC__Serial_Lot_Number__c;
+			 mip.SECommercialRef = wo.SVMXC__Component__r.SchneiderCommercialReference__c;
+			 mip.installedAtCountryCode = wo.SVMXC__Component__r.SVMXC__Company__r.Country__r.CountryCode__c;
+			
+
+			 woresult.mainInstalledProduct =mip;
+			 woresult.parentWObFOID = wo.Parent_Work_Order__c;
+			 woresult.projectNumber = String.valueOf(wo.Project__c);
+			 woresult.serviceContractBOReference =  wo.SVMXC__Service_Contract__r.BackOfficeReference__c;
+			 woresult.serviceLineBOReference = wo.ServiceLine__r.BackOfficeReference__c;
+			 woresult.salesOrderNumber = wo.Sales_Order_Number__c;
+			 woresult.salesOrderLineNumber = wo.salesOrderLineNumber__c;
+			 
+			 //woresult.PONumber = wo.PONumber__c
+			 woresult.PONumber = wo.Customer_Reference_Number__c;
+			 woresult.serviceCenterTerritoryName = wo.SVMXC__Primary_Territory__r.Name;
+			 woresult.customerReferenceNumber =wo.CustomerReferenceNumber__c;
             //woresult.ownerSESAID
-            woresult.parentWObFOID = wo.Parent_Work_Order__c;
+           
             woresult.soldToAccountbFOID = wo.SoldToAccount__c;
             //woresult.mainInstalledProduct = String.valueOf(wo.SVMXC__Component__c);
-            woresult.productbFOID = String.valueOf(wo.SVMXC__Product__c);
-            woresult.projectNumber = String.valueOf(wo.Project__c);
-            //woresult.serviceContractBOReference =  wo.
-            //woresult.serviceLineBOReference
-            /*
-            woresult.salesOrderNumber
-            woresult.salesOrderLineNumber
-            woresult.PONumber
-            woresult.serviceCenterTerritoryName
-            woresult.customerReferenceNumber
-            woresult.TECH_FOLastUpdateTimestamp
-            
-            */
+             woresult.productbFOID = String.valueOf(wo.SVMXC__Product__c);
+        
 
 
             
@@ -1242,16 +1331,27 @@ global class WS_Work_Order{
         wo.TECH_FOLastUpdate_Timestamp__c =wou.TECH_FOLastUpdateTimestamp;
         wo.PONumber__c  = wou.PONumber;
         wo.salesOrderLineNumber__c = wou.salesOrderLineNumber;
-        wo.customerReferenceNumber__c = wou.customerReferenceNumber;        
+        wo.Customer_Reference_Number__c = wou.customerReferenceNumber;
+        wo.SVMXC__Company__c   = wou.installedAtAccountbFOID ;     
         wo.Sales_Order_Number__c = wou.salesOrderNumber;
-        wo.CurrencyIsoCode = wou.WOcurrencyIsCode;
+       
         wo.EstimatedExpenseCost__c = wou.estimatedExpenseCost;
         wo.EstimatedMaterialCost__c = wou.estimatedMaterialCost;
         //wo.estimatedLaborCost
-        wo.BackOfficeReference__c = wou.WOGBackOfficeReference;
+        
         wo.QuotationLink__c = wou.quotationNumber;
         wo.BillToAccount__c = wou.billToAccountbFOID;
-        
+        wo.SVMXC__Product__c = wou.productbFOID;
+        wo.Estimated_Labor_Cost__c = wou.estimatedLaborCost;
+        wo.Project__c = wou.projectNumber;
+        wo.salesOrderLineNumber__c =wou.salesOrderLineNumber;
+        wo.Sales_Order_Number__c =wou.salesOrderNumber;
+        wo.Service_Business_Unit__c  = wou.serviceBusinessUnit;
+        wo.SVMXC__Service_Contract__c  = wou.serviceContractbFOID;
+        wo.ServiceLine__c =wou.serviceLinebFOID;
+        wo.SoldToAccount__c  = wou.soldToAccountbFOID;
+        wo.BackOfficeReference__c = wou.WOBackOfficeReference;
+        wo.CurrencyIsoCode =wou.WOcurrencyIsCode;
         
         
            // webservice String  serviceContractBOReference;
@@ -1290,7 +1390,7 @@ global class WS_Work_Order{
             if(con.localLastName != null && con.localLastName!='')
                 localLastNameset.add(con.localLastName);
             if(con.emailAddress != null && con.emailAddress!='')
-                emailAddressset.add(con.GoldenID);
+                emailAddressset.add(con.emailAddress);
             if(con.mobilePhone != null && con.mobilePhone!='')
                 mobilePhoneset.add(con.mobilePhone);
             if(con.workPhone != null && con.workPhone!='')
