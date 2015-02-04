@@ -9,7 +9,7 @@ global class WS_Work_Order{
             webservice String     workOrderNumber; 
             webservice ID      installedAtAccountbFOID ;
             webservice Contact    contact;
-            webservice String     customerRequestedDate ; // need to confirm datatype           
+            webservice Date    customerRequestedDate ; // need to confirm datatype           
             webservice String customerRequestedTime;
             webservice String serviceBusinessUnit;
             webservice String priority;
@@ -31,7 +31,7 @@ global class WS_Work_Order{
             webservice ID     parentWObFOID;
             webservice ID     soldToAccountbFOID;
             webservice InstalledProduct mainInstalledProduct;
-            webservice String  productGoldenID;
+            webservice String  productbFOID;
             webservice String  projectNumber;
             webservice String  serviceContractBOReference;
             webservice String  serviceLineBOReference;
@@ -40,10 +40,21 @@ global class WS_Work_Order{
             webservice String  PONumber;
             webservice String  serviceCenterTerritoryName;
             webservice String  customerReferenceNumber;
-            webservice String  TECH_FOLastUpdateTimestamp; 
+            webservice DateTime  TECH_FOLastUpdateTimestamp; 
             webservice WorkDetail   WorkDetail;
-            
-          
+            webservice String   quotationNumber;
+            webservice Id   serviceContractbFOID;
+            webservice Id   serviceLinebFOID;
+            webservice String   WOBackOfficeReference;
+            webservice String   TECH_WOBackOfficeRecordID;
+            webservice String   WOGBackOfficeReference;
+            webservice Decimal   estimatedExpenseCost;
+            webservice Decimal   estimatedMaterialCost;
+            webservice Decimal   estimatedLaborCost;
+            webservice String   WOcurrencyIsCode;
+            webservice String billToAccountbFOID;
+            webservice String slaTermsName;
+        
      
      }
      
@@ -130,7 +141,7 @@ global class WS_Work_Order{
         webservice  ID  partOrderLinebFOID  ;
         webservice  String  partOrderLinebFONumber  ;
         webservice  String  partOrderLineType   ;
-        webservice  String  sparePartGoldenID   ;
+        webservice  String  sparePartbFOID   ;
         webservice  String  FOSKUReference  ;
         webservice  String  plantName   ;
         webservice  Integer expectedQuantity    ;
@@ -294,13 +305,13 @@ global class WS_Work_Order{
      
      }
     public static WorkOrder woresult = new WorkOrder();
-	public static Map<String,RecordType> woDetailsMap = new Map<String,RecordType>();
+    public static Map<String,RecordType> woDetailsMap = new Map<String,RecordType>();
     webservice static  WorkOrder getWorkOrderDetails(Id WorkOrderId, String Event){ 
             
             
             if(WorkOrderId != null )
             {
-				for(RecordType rt: [SELECT DeveloperName,Id,Name,SobjectType FROM RecordType where SobjectType ='SVMXC__Service_Order_Line__c']){
+                for(RecordType rt: [SELECT DeveloperName,Id,Name,SobjectType FROM RecordType where SobjectType ='SVMXC__Service_Order_Line__c']){
                     woDetailsMap.put(rt.DeveloperName , rt);
                 }
                 
@@ -320,13 +331,13 @@ global class WS_Work_Order{
                 }
                 else if(Event=='WO.RELEASE'){
                 
-						SVMXC__Service_Order__c wo = getWorkOrderObject(WorkOrderId);
-						 populateWorkOrderFields(wo);
-						 WorkDetail wd= getWorkDetails(WorkOrderId ,'WO.RELEASE');
-						 woresult.WorkDetail = wd;
-						 
-						 
-						 
+                        SVMXC__Service_Order__c wo = getWorkOrderObject(WorkOrderId);
+                         populateWorkOrderFields(wo);
+                         WorkDetail wd= getWorkDetails(WorkOrderId ,'WO.RELEASE');
+                         woresult.WorkDetail = wd;
+                         
+                         
+                         
                 }
             
             }
@@ -382,7 +393,8 @@ global class WS_Work_Order{
                 
             }
             if(wou.primaryFSR != null ){
-                System.debug('\n WOWS Log :primaryFSR '+wou.primaryFSR);
+                if(wou.primaryFSR.RoleName == 'Schneider Employee'){
+                    System.debug('\n WOWS Log :primaryFSR '+wou.primaryFSR);
                     String whereClause ='';
                     if(wou.primaryFSR.SESAID != null && wou.primaryFSR.SESAID !='')
                         whereClause ='FederationIdentifier = \''+wou.primaryFSR.SESAID+'\'';
@@ -426,13 +438,65 @@ global class WS_Work_Order{
                             if(u!= null )
                             {
                                 System.debug('\n WO WS Log :'+[select id , name  from SVMXC__Service_Group_Members__c where SVMXC__Salesforce_User__c = : u.id]);
-                                wo.SVMXC__Preferred_Technician__c =[select id , name  from SVMXC__Service_Group_Members__c where SVMXC__Salesforce_User__c = : u.id].id;
+                                wo.SVMXC__Group_Member__c =[select id , name  from SVMXC__Service_Group_Members__c where SVMXC__Salesforce_User__c = : u.id].id;
                             }
                     }
                     catch(Exception ex){
                         
                     }
-            
+                }
+                else{
+                    System.debug('\n WOWS Log :primaryFSR '+wou.primaryFSR);
+                    String whereClause ='';
+                    if(wou.primaryFSR.FirstName != null && wou.primaryFSR.FirstName !='')
+                    {
+                        if(whereClause.length()>0){
+                            whereClause +=' and FirstName = \''+wou.primaryFSR.FirstName+'\'';
+                        }
+                        else{
+                            whereClause +='  FirstName = \''+wou.primaryFSR.FirstName+'\'';
+                        }
+                    }
+                    if(wou.primaryFSR.LastName != null && wou.primaryFSR.LastName !='')
+                    {
+                        if(whereClause.length()>0){
+                            whereClause +=' and LastName = \''+wou.primaryFSR.LastName+'\'';
+                        }
+                        else{
+                            whereClause +='  LastName = \''+wou.primaryFSR.LastName+'\'';
+                        }
+                    }   
+                    if(wou.primaryFSR.Email != null && wou.primaryFSR.Email !='')
+                    {
+                        if(whereClause.length()>0){
+                            whereClause +=' and Email = \''+wou.primaryFSR.Email+'\'';
+                        }
+                        else{
+                            whereClause +='  Email = \''+wou.primaryFSR.Email+'\'';
+                        }
+                    }
+                    if(whereClause.length()>0)
+                    whereClause = ' where '+whereClause;
+                
+                
+                     String QueryString ='SELECT Email,FirstName,Id,LastName FROM contact '+whereClause +' Limit 1';
+                     System.debug('\n WOWS Log :Contact Query '+QueryString);
+                     try{ 
+                        Sobject con = Database.query(QueryString);
+                        String conid = String.valueOf(con.get('Id'));
+                        System.debug('\n WO WS Log :'+conid);
+                        
+                            if(con!= null )
+                            {
+                                System.debug('\n WO WS Log :'+[select id , name,ThirdPartyContact__c  from SVMXC__Service_Group_Members__c where ThirdPartyContact__c = : conid]);
+                                wo.SVMXC__Group_Member__c =[select id , name,ThirdPartyContact__c  from SVMXC__Service_Group_Members__c where ThirdPartyContact__c = : con.id].id;
+                            }
+                    }
+                    catch(Exception ex){
+                        
+                    }
+                
+                }
             }
             if(wou.mainInstalledProduct != null ){                
                  
@@ -465,6 +529,7 @@ global class WS_Work_Order{
             
             
             WorkOrderResult wor = new WorkOrderResult();
+            Boolean isHeaderSuccess= true;
             
              if (!sresult.isSuccess()) {
                 String ErroMessage ='';
@@ -474,7 +539,7 @@ global class WS_Work_Order{
                 wor.success = false;
                 wor.type = 'CREATED';
                 wor.errorMessage = ErroMessage;             
-                
+                isHeaderSuccess = false;
               }
               else{
               
@@ -486,6 +551,8 @@ global class WS_Work_Order{
                     wor.workOrderbFOID = srObj.id;
                     wor.workOrderNumber = srObj.name;
                     wor.workOrderBOReference = srObj.BackOfficeReference__c;
+                    wor.workOrderGroupbFOID = srObj.WorkOrderGroup__c;
+                    wor.workOrderGoupBOReference = srObj.WorkOrderGroup__r.BackOfficeReference__c;
                     //wor.TECH_WOBackOfficeRecordID
                     //wor.workOrderGroupbFOID
                     //wor.workOrderGoupBOReference
@@ -494,12 +561,15 @@ global class WS_Work_Order{
                     
               }
               
-              if(wou.WorkDetail != null )
+              if(wou.WorkDetail != null && isHeaderSuccess )
               {
                 if(wou.WorkDetail.ServiceProductsWDs != null && wou.WorkDetail.ServiceProductsWDs.size()>0)
                 {   
                     
                         List<SVMXC__Service_Order_Line__c>  solines = prepareServiceProducts(wou.WorkDetail.ServiceProductsWDs);
+                        for(SVMXC__Service_Order_Line__c sl: solines){
+                            sl.SVMXC__Service_Order__c = wor.workOrderbFOID;
+                        }
                         
                         List<ServicedProductsWDResult> spResult = new List<ServicedProductsWDResult>();
                         WorkDetailsResult wdr = new WorkDetailsResult();
@@ -587,8 +657,13 @@ global class WS_Work_Order{
             else
             WhereClause +=  '  email in  ('+ SOQLListFormat(TEmailset) +') ';
         }
-         Query =  QueryString +' where '+WhereClause;
-         List<Sobject> contactlist = Database.query(Query);
+            List<Sobject> contactlist  = new List<Sobject>();
+         if(WhereClause.length()>0){
+             Query =  QueryString +' where '+WhereClause;
+             System.debug('\n WOWS Log : contact query '+Query);
+            contactlist =  Database.query(Query);
+         }
+         
          
         String UQuery='';        
         String UQueryString ='';
@@ -620,8 +695,12 @@ global class WS_Work_Order{
             else
             UWhereClause +=  '  FederationIdentifier in  ('+ SOQLListFormat(SESAIDset) +') ';
         }
-         UQuery =  UQueryString +' where '+UWhereClause;                     
-         List<User> userlist = Database.query(UQuery);
+        List<User> userlist = new List<User>();
+        if(UWhereClause.length()>0){
+            UQuery =  UQueryString +' where '+UWhereClause;  
+            userlist =Database.query(UQuery);
+        }
+         
         
         Set<id> conidset = new Set<id>();
         Set<id> useridset = new Set<id>();
@@ -799,7 +878,7 @@ global class WS_Work_Order{
         for(ServiceProducts spu: spList){   
             SVMXC__Service_Order_Line__c sol = new SVMXC__Service_Order_Line__c();
             sol.SVMXC__Serial_Number__c = spu.ipid;
-            sol.SVMXC__Group_Member__c = spu.ipid;
+            sol.SVMXC__Group_Member__c = spu.Fsrid;
             sol.RecordTypeId = rtRecord.id;
             ServiceProductsList.add(sol);
         
@@ -906,7 +985,7 @@ global class WS_Work_Order{
     public Static SVMXC__Service_Order__c getWorkOrderObject( Id woid){
     
         SVMXC__Service_Order__c  wo = new SVMXC__Service_Order__c();
-        wo = [select ID,Name,SVMXC__Company__c,SVMXC__Contact__c,CustomerRequestedDate__c,CustomerRequestedTime__c,BusinessUnit__c,SVMXC__Priority__c,SVMXC__Scheduled_Date_Time__c,WorkOrderGroup__c,WorkOrderName__c,Comments_to_Planner__c,CountryOfBackOffice__c,BackOfficeSystem__c,SVMXC__Order_Status__c,SubStatus__c,Work_Order_Category__c,SVMXC__Order_Type__c,WorkOrderSubType__c,IsBillable__c,SVMXC__Billing_Type__c,SVMXC__Group_Member__c,OwnerID,Parent_Work_Order__c,SoldToAccount__c,SVMXC__Component__c,SVMXC__Product__c,Project__c,SVMXC__Service_Contract__c,ServiceLine__c,BackOfficeReference__c from SVMXC__Service_Order__c where id =:woid];
+        wo = [select ID,Name,SVMXC__Company__c,SVMXC__Contact__c,CustomerRequestedDate__c,CustomerRequestedTime__c,BusinessUnit__c,SVMXC__Priority__c,SVMXC__Scheduled_Date_Time__c,WorkOrderGroup__c,WorkOrderGroup__r.BackOfficeReference__c,WorkOrderName__c,Comments_to_Planner__c,CountryOfBackOffice__c,BackOfficeSystem__c,SVMXC__Order_Status__c,SubStatus__c,Work_Order_Category__c,SVMXC__Order_Type__c,WorkOrderSubType__c,IsBillable__c,SVMXC__Billing_Type__c,SVMXC__Group_Member__c,OwnerID,Parent_Work_Order__c,SoldToAccount__c,SVMXC__Component__c,SVMXC__Product__c,Project__c,SVMXC__Service_Contract__c,ServiceLine__c,BackOfficeReference__c from SVMXC__Service_Order__c where id =:woid];
         return wo;
     }
     public Static List<ServiceProductsWD>  getServiceProducts( Id woid ,Id rtid){
@@ -952,116 +1031,116 @@ global class WS_Work_Order{
         return splist;
         
     }
-	public Static   WorkDetail  getWorkDetails( Id woid ,String event){
-		WorkDetail wDetail=new WorkDetail();
-		Set<id> ipidSet = new Set<id>();
+    public Static   WorkDetail  getWorkDetails( Id woid ,String event){
+        WorkDetail wDetail=new WorkDetail();
+        Set<id> ipidSet = new Set<id>();
         Set<id> fsridSet = new Set<id>();
-		
-		RecordType TimeRt =woDetailsMap.get('Labor');
-		RecordType ExpenseRt = woDetailsMap.get('Expense');
-		RecordType ServiceProductRt =woDetailsMap.get('Products_Serviced');
-		ID timer = TimeRt.id;
-		ID expense = ExpenseRt.id;
-		ID serviceproduct = ServiceProductRt.id;
-		
-		List<TimeWD> TimeWDs = new List<TimeWD>();
-		List<ExpenseWD> ExpenseWDs  = new List<ExpenseWD>();  
-		List<ServiceProductsWD> ServiceProductsWDs = new List<ServiceProductsWD>();
-			
-		
-		if(event == 'WO.RELEASE'){
-			 
-			 for(SVMXC__Service_Order_Line__c  wd:[select id,SVMXC__Service_Order__c,SVMXC__Line_Type__c ,SVMXC__Activity_Type__c,HourType__c,SVMXC__Serial_Number__c,SVMXC__Group_Member__c from SVMXC__Service_Order_Line__c where SVMXC__Service_Order__c =:woid and ( RecordTypeId =:timer OR RecordTypeId =:expense OR RecordTypeId =:serviceproduct)])
-			 {
-				if(wd.SVMXC__Serial_Number__c != null ){            
-					ipidSet.add(wd.SVMXC__Serial_Number__c);
-				}
-				if(wd.SVMXC__Group_Member__c != null ){         
-					fsridSet.add(wd.SVMXC__Group_Member__c);
-				} 
-			 
-			 
-			 }
-			 prepareIPMap(ipidSet);
-			 prepareTechnicians(fsridSet);
-			 for(SVMXC__Service_Order_Line__c  wd:[select id,RecordTypeId ,SVMXC__Service_Order__c,SVMXC__Line_Type__c ,SVMXC__Activity_Type__c,HourType__c,SVMXC__Serial_Number__c,SVMXC__Group_Member__c,SVMXC__Expense_Type__c,SVMXC__Date_Received__c,IsBillable__c,SVMXC__Work_Description__c ,SVMXC__Start_Date_and_Time__c ,SVMXC__End_Date_and_Time__c ,TotalTime__c from SVMXC__Service_Order_Line__c where SVMXC__Service_Order__c =:woid and ( RecordTypeId =:timer OR RecordTypeId =:expense OR RecordTypeId =:serviceproduct)])
-			 {				
-				
-				
-					if(wd.RecordTypeId == timer){
-						TimeWD t = new TimeWD();
-						t.workOrderbFOID = wd.SVMXC__Service_Order__c;
-						t.workDetailbFOID = wd.id;
-						t.lineType = wd.SVMXC__Line_Type__c;
-						t.activityType = wd.SVMXC__Activity_Type__c;
-						t.hourType = wd.HourType__c;
-						if(wd.SVMXC__Group_Member__c != null)
-						{
-							if(TechnicianMap.containskey(wd.SVMXC__Group_Member__c))
-							{
-								t.FSR = TechnicianMap.get(wd.SVMXC__Group_Member__c);
-							}
-						}
-						t.isBillable = wd.IsBillable__c;
-						t.startDateTime = String.valueOf(wd.SVMXC__Start_Date_and_Time__c);
-						t.endDateTime = String.valueOf(wd.SVMXC__End_Date_and_Time__c);
-						t.totalTime = wd.TotalTime__c;
-						t.workDescription = wd.SVMXC__Work_Description__c;
-						t.workDetailPlannedbFOID = wd.SVMXC__Work_Detail__c;
-						TimeWDs.add(t);
-						
-					}
-					else if(wd.RecordTypeId == expense){
-						ExpenseWD e = new ExpenseWD();
-						e.workOrderbFOID = wd.SVMXC__Service_Order__c;
-						e.workDetailbFOID = wd.id;
-						e.lineType = wd.SVMXC__Line_Type__c;
-						e.expenseType = wd.SVMXC__Expense_Type__c;
-						e.expenseDate = String.valueOf(wd.SVMXC__Date_Received__c);
-						e.isBillable = wd.IsBillable__c;
-						//e.billingType = wd.
-						e.expenseQuantity = wd.ExpenseQuantity__c;
-						e.linePricePerUnit = wd.LinePricePerUnit__c;
-						e.currencyIsoCode = wd.CurrencyIsoCode;
-						e.workDescription = wd.SVMXC__Work_Description__c;
-						e.workDetailPlannedbFOID = wd.SVMXC__Work_Detail__c;
-						ExpenseWDs.add(e);
-					}
-					else if(wd.RecordTypeId == serviceproduct){
-						 ServiceProductsWD sp = new ServiceProductsWD();
-						sp.workOrderbFOID = wd.SVMXC__Service_Order__c;
-						if(wd.SVMXC__Group_Member__c != null)
-						{
-							if(TechnicianMap.containskey(wd.SVMXC__Group_Member__c))
-							{
-								sp.FSR = TechnicianMap.get(wd.SVMXC__Group_Member__c);
-							}
-						}
-						if(wd.SVMXC__Serial_Number__c != null)
-						{
-							if(IPUnitMap.containskey(wd.SVMXC__Serial_Number__c))
-							{
-								sp.InstalledProduct = IPUnitMap.get(wd.SVMXC__Serial_Number__c);
-							}
-						
-						}
-						sp.workDescription = wd.SVMXC__Work_Description__c;
-						ServiceProductsWDs.add(sp);
-					
-					}
-			 
-			 }
-			wDetail.TimeWDs = TimeWDs;
-			wDetail.ExpenseWDs = ExpenseWDs;
-			wDetail.ServiceProductsWDs = ServiceProductsWDs;
-		
-		}
-	
-		
-		
-		return wDetail;
-	
-	}
+        
+        RecordType TimeRt =woDetailsMap.get('Labor');
+        RecordType ExpenseRt = woDetailsMap.get('Expense');
+        RecordType ServiceProductRt =woDetailsMap.get('Products_Serviced');
+        ID timer = TimeRt.id;
+        ID expense = ExpenseRt.id;
+        ID serviceproduct = ServiceProductRt.id;
+        
+        List<TimeWD> TimeWDs = new List<TimeWD>();
+        List<ExpenseWD> ExpenseWDs  = new List<ExpenseWD>();  
+        List<ServiceProductsWD> ServiceProductsWDs = new List<ServiceProductsWD>();
+            
+        
+        if(event == 'WO.RELEASE'){
+             
+             for(SVMXC__Service_Order_Line__c  wd:[select id,SVMXC__Service_Order__c,SVMXC__Line_Type__c ,SVMXC__Activity_Type__c,HourType__c,SVMXC__Serial_Number__c,SVMXC__Group_Member__c from SVMXC__Service_Order_Line__c where SVMXC__Service_Order__c =:woid and ( RecordTypeId =:timer OR RecordTypeId =:expense OR RecordTypeId =:serviceproduct)])
+             {
+                if(wd.SVMXC__Serial_Number__c != null ){            
+                    ipidSet.add(wd.SVMXC__Serial_Number__c);
+                }
+                if(wd.SVMXC__Group_Member__c != null ){         
+                    fsridSet.add(wd.SVMXC__Group_Member__c);
+                } 
+             
+             
+             }
+             prepareIPMap(ipidSet);
+             prepareTechnicians(fsridSet);
+             for(SVMXC__Service_Order_Line__c  wd:[select id,RecordTypeId ,SVMXC__Service_Order__c,SVMXC__Line_Type__c ,SVMXC__Activity_Type__c,HourType__c,SVMXC__Serial_Number__c,SVMXC__Group_Member__c,SVMXC__Expense_Type__c,SVMXC__Date_Received__c,IsBillable__c,SVMXC__Work_Description__c ,SVMXC__Start_Date_and_Time__c ,SVMXC__End_Date_and_Time__c ,TotalTime__c from SVMXC__Service_Order_Line__c where SVMXC__Service_Order__c =:woid and ( RecordTypeId =:timer OR RecordTypeId =:expense OR RecordTypeId =:serviceproduct)])
+             {              
+                
+                
+                    if(wd.RecordTypeId == timer){
+                        TimeWD t = new TimeWD();
+                        t.workOrderbFOID = wd.SVMXC__Service_Order__c;
+                        t.workDetailbFOID = wd.id;
+                        t.lineType = wd.SVMXC__Line_Type__c;
+                        t.activityType = wd.SVMXC__Activity_Type__c;
+                        t.hourType = wd.HourType__c;
+                        if(wd.SVMXC__Group_Member__c != null)
+                        {
+                            if(TechnicianMap.containskey(wd.SVMXC__Group_Member__c))
+                            {
+                                t.FSR = TechnicianMap.get(wd.SVMXC__Group_Member__c);
+                            }
+                        }
+                        t.isBillable = wd.IsBillable__c;
+                        t.startDateTime = String.valueOf(wd.SVMXC__Start_Date_and_Time__c);
+                        t.endDateTime = String.valueOf(wd.SVMXC__End_Date_and_Time__c);
+                        t.totalTime = wd.TotalTime__c;
+                        t.workDescription = wd.SVMXC__Work_Description__c;
+                        t.workDetailPlannedbFOID = wd.SVMXC__Work_Detail__c;
+                        TimeWDs.add(t);
+                        
+                    }
+                    else if(wd.RecordTypeId == expense){
+                        ExpenseWD e = new ExpenseWD();
+                        e.workOrderbFOID = wd.SVMXC__Service_Order__c;
+                        e.workDetailbFOID = wd.id;
+                        e.lineType = wd.SVMXC__Line_Type__c;
+                        e.expenseType = wd.SVMXC__Expense_Type__c;
+                        e.expenseDate = String.valueOf(wd.SVMXC__Date_Received__c);
+                        e.isBillable = wd.IsBillable__c;
+                        //e.billingType = wd.
+                        e.expenseQuantity = wd.ExpenseQuantity__c;
+                        e.linePricePerUnit = wd.LinePricePerUnit__c;
+                        e.currencyIsoCode = wd.CurrencyIsoCode;
+                        e.workDescription = wd.SVMXC__Work_Description__c;
+                        e.workDetailPlannedbFOID = wd.SVMXC__Work_Detail__c;
+                        ExpenseWDs.add(e);
+                    }
+                    else if(wd.RecordTypeId == serviceproduct){
+                         ServiceProductsWD sp = new ServiceProductsWD();
+                        sp.workOrderbFOID = wd.SVMXC__Service_Order__c;
+                        if(wd.SVMXC__Group_Member__c != null)
+                        {
+                            if(TechnicianMap.containskey(wd.SVMXC__Group_Member__c))
+                            {
+                                sp.FSR = TechnicianMap.get(wd.SVMXC__Group_Member__c);
+                            }
+                        }
+                        if(wd.SVMXC__Serial_Number__c != null)
+                        {
+                            if(IPUnitMap.containskey(wd.SVMXC__Serial_Number__c))
+                            {
+                                sp.InstalledProduct = IPUnitMap.get(wd.SVMXC__Serial_Number__c);
+                            }
+                        
+                        }
+                        sp.workDescription = wd.SVMXC__Work_Description__c;
+                        ServiceProductsWDs.add(sp);
+                    
+                    }
+             
+             }
+            wDetail.TimeWDs = TimeWDs;
+            wDetail.ExpenseWDs = ExpenseWDs;
+            wDetail.ServiceProductsWDs = ServiceProductsWDs;
+        
+        }
+    
+        
+        
+        return wDetail;
+    
+    }
     public static Map<Id,InstalledProduct> IPUnitMap = new Map<Id,InstalledProduct>();
     public Static void prepareIPMap(Set<id> idset){
            
@@ -1100,7 +1179,7 @@ global class WS_Work_Order{
             woresult.workOrderNumber = wo.Name;
             //woresult.installedAtAccount = 
             //woresult.contact
-            woresult.customerRequestedDate = String.valueOf(wo.CustomerRequestedDate__c);
+            woresult.customerRequestedDate = wo.CustomerRequestedDate__c;
             woresult.customerRequestedTime = wo.CustomerRequestedTime__c;           
             woresult.serviceBusinessUnit = wo.BusinessUnit__c;
             woresult.priority = wo.SVMXC__Priority__c;
@@ -1123,7 +1202,7 @@ global class WS_Work_Order{
             woresult.parentWObFOID = wo.Parent_Work_Order__c;
             woresult.soldToAccountbFOID = wo.SoldToAccount__c;
             //woresult.mainInstalledProduct = String.valueOf(wo.SVMXC__Component__c);
-            woresult.productGoldenID = String.valueOf(wo.SVMXC__Product__c);
+            woresult.productbFOID = String.valueOf(wo.SVMXC__Product__c);
             woresult.projectNumber = String.valueOf(wo.Project__c);
             //woresult.serviceContractBOReference =  wo.
             //woresult.serviceLineBOReference
@@ -1157,8 +1236,40 @@ global class WS_Work_Order{
         wo.SVMXC__Order_Type__c = wou.workOrderType;
         wo.WorkOrderSubType__c = wou.workOrderSubType;
         wo.IsBillable__c =  wou.isBillable;
-        wo.SVMXC__Billing_Type__c =  wou.billingType;    
+        wo.SVMXC__Billing_Type__c =  wou.billingType;   
+        wo.CustomerRequestedDate__c = wou.customerRequestedDate;
+        wo.SVMXC__Problem_Description__c =wou.workOrderReason;      
+        wo.TECH_FOLastUpdate_Timestamp__c =wou.TECH_FOLastUpdateTimestamp;
+        wo.PONumber__c  = wou.PONumber;
+        wo.salesOrderLineNumber__c = wou.salesOrderLineNumber;
+        wo.customerReferenceNumber__c = wou.customerReferenceNumber;        
+        wo.Sales_Order_Number__c = wou.salesOrderNumber;
+        wo.CurrencyIsoCode = wou.WOcurrencyIsCode;
+        wo.EstimatedExpenseCost__c = wou.estimatedExpenseCost;
+        wo.EstimatedMaterialCost__c = wou.estimatedMaterialCost;
+        //wo.estimatedLaborCost
+        wo.BackOfficeReference__c = wou.WOGBackOfficeReference;
+        wo.QuotationLink__c = wou.quotationNumber;
+        wo.BillToAccount__c = wou.billToAccountbFOID;
         
+        
+        
+           // webservice String  serviceContractBOReference;
+           // webservice String  serviceLineBOReference;
+           // webservice String  salesOrderNumber;
+           
+           // webservice String  PONumber;
+           // webservice String  serviceCenterTerritoryName;
+           
+            
+            
+            //webservice Id   serviceLinebFOID;
+            //webservice String   WOBackOfficeReference;
+            //webservice String   TECH_WOBackOfficeRecordID;
+            
+            
+            //webservice Decimal   estimatedLaborCost;
+            
     
         return wo;
     }
@@ -1229,7 +1340,7 @@ global class WS_Work_Order{
     }
     public Static String getIPQuery(){
         
-                String Query=' select id, name ,GoldenAssetId__c,SVMXC__Company__c,SVMXC__Company__r.SEAccountID__c,CustomerSerialNumber__c, SVMXC__Company__r.SVMXC__Country__c , SchneiderCommercialReference__c,SVMXC__Company__r.Country__r.CountryCode__c from SVMXC__Installed_Product__c ';
+                String Query=' select id, name ,GoldenAssetId__c,SVMXC__Company__c,SVMXC__Company__r.SEAccountID__c,CustomerSerialNumber__c, SchneiderCommercialReference__c,SVMXC__Company__r.Country__r.CountryCode__c from SVMXC__Installed_Product__c ';
         
                 String QueryString ='';
                 String WhereClause ='';
@@ -1270,12 +1381,13 @@ global class WS_Work_Order{
         if(installedAtCountryCodeset != null && installedAtCountryCodeset.size()>0)
         {
             if(WhereClause.length()>0)
-            WhereClause +=  ' OR  SVMXC__Company__r.SVMXC__Country__r.CountryCode__c in  ('+ SOQLListFormat(installedAtCountryCodeset) +') ';
+            WhereClause +=  ' OR  SVMXC__Company__r.Country__r.CountryCode__c in  ('+ SOQLListFormat(installedAtCountryCodeset) +') ';
             else
-            WhereClause +=  '  SVMXC__Company__r.SVMXC__Country__r.CountryCode__c in  ('+ SOQLListFormat(installedAtCountryCodeset) +') ';
+            WhereClause +=  '  SVMXC__Company__r.Country__r.CountryCode__c in  ('+ SOQLListFormat(installedAtCountryCodeset) +') ';
         }
         
-        QueryString = Query + WhereClause;
+        QueryString = Query +' Where '+ WhereClause;
+        System.debug('\n Log WWS : ip query '+QueryString);
         return QueryString;
     
     }
